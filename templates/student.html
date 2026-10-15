@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Workspace Siswa - File Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        /* Sembunyikan scrollbar agar terlihat lebih clean */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+    </style>
+</head>
+<body class="bg-gray-50 flex h-screen text-gray-800 font-sans">
+
+    <!-- Sidebar Tugas -->
+    <div class="w-1/4 min-w-[300px] bg-white border-r shadow-sm flex flex-col z-10">
+        <div class="p-5 bg-gradient-to-r from-blue-700 to-blue-600 text-white flex justify-between items-center shadow-md">
+            <div>
+                <h2 class="font-bold text-lg leading-tight">File Manager</h2>
+                <p class="text-xs text-blue-200">User: {{ username }}</p>
+            </div>
+            <a href="/logout" class="text-xs font-semibold bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded transition-colors">Logout</a>
+        </div>
+        <div class="p-6 flex-1 overflow-y-auto">
+            <div class="inline-block bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded mb-3">TUGAS AKTIF</div>
+            <h3 class="text-xl font-bold mb-3 text-gray-800">{{ task.title }}</h3>
+            <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-800 p-4 rounded-r shadow-sm mb-6 text-sm leading-relaxed">
+                {{ task.description }}
+            </div>
+            
+            <p class="text-sm font-bold mb-2 text-gray-700 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                Target Struktur (ASCII Diagram):
+            </p>
+            <div class="bg-gray-900 border border-gray-700 p-4 rounded-lg text-sm font-mono text-green-400 shadow-inner overflow-x-auto">
+                <pre id="ascii-diagram">Memuat diagram struktur...</pre>
+            </div>
+        </div>
+        <div class="p-5 border-t bg-gray-50">
+            <button onclick="submitTask()" class="w-full bg-green-500 text-white font-bold py-3 rounded shadow hover:bg-green-600 hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                Submit Tugas
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Area File Manager -->
+    <div class="flex-1 flex flex-col bg-white">
+        <!-- Toolbar Atas -->
+        <div class="bg-gray-50 border-b p-3 flex gap-3 items-center shadow-sm">
+            <button onclick="navigateUp()" class="flex items-center gap-1 bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-100 transition-colors text-sm font-medium shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                Up
+            </button>
+            
+            <!-- Address Bar -->
+            <div class="flex-1 bg-white border border-gray-300 rounded flex items-center px-3 py-1.5 shadow-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+                <span class="font-mono text-sm text-gray-600 select-none" id="current-path-display">Computer > </span>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-2">
+                <button onclick="createItem('folder')" class="flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors text-sm font-medium shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
+                    New Folder
+                </button>
+                <button onclick="createItem('txt')" class="flex items-center gap-1 bg-gray-50 border border-gray-300 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-100 transition-colors text-sm font-medium shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    New .txt
+                </button>
+            </div>
+        </div>
+
+        <!-- Explorer View -->
+        <div class="flex-1 p-6 overflow-y-auto" id="explorer-container">
+            <div id="explorer-grid" class="flex flex-wrap gap-6 items-start">
+                <!-- Items akan di-render di sini via JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const taskId = {{ task.id | default('null') }};
+        
+        // Ikon SVG Profesional
+        const icons = {
+            disk: `<svg class="w-14 h-14 text-gray-500 drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm14 1a1 1 0 11-2 0 1 1 0 012 0zM2 13a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2v-2zm14 1a1 1 0 11-2 0 1 1 0 012 0z" clip-rule="evenodd" /></svg>`,
+            folder: `<svg class="w-14 h-14 text-yellow-400 drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>`,
+            file: `<svg class="w-14 h-14 text-blue-500 drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" /></svg>`
+        };
+
+        // Representasi File System In-Memory dengan Data Default
+        let fileSystem = { 
+            type: "root", 
+            children: {
+                "Local Disk (C:)": {
+                    type: "disk",
+                    protected: true,
+                    children: {
+                        "Program Files": { type: "folder", protected: true, children: {} },
+                        "Windows": { type: "folder", protected: true, children: {} },
+                        "Users": { type: "folder", protected: true, children: {} }
+                    }
+                },
+                "Data (D:)": {
+                    type: "disk",
+                    protected: true,
+                    children: {
+                        "Tugas Sekolah": { type: "folder", children: {} },
+                        "Project Coding": { type: "folder", children: {} },
+                        "catatan_rahasia.txt": { type: "file", protected: true }
+                    }
+                }
+            } 
+        };
+        let currentPath = [];
+
+        function getCurrentNode() {
+            let node = fileSystem;
+            for (let folder of currentPath) {
+                node = node.children[folder];
+            }
+            return node;
+        }
+
+        function renderExplorer() {
+            const grid = document.getElementById('explorer-grid');
+            grid.innerHTML = '';
+            
+            let displayPath = currentPath.length === 0 ? "Computer" : "Computer > " + currentPath.join(" > ");
+            document.getElementById('current-path-display').innerText = displayPath;
+
+            const currentNode = getCurrentNode();
+            
+            if (Object.keys(currentNode.children).length === 0) {
+                grid.innerHTML = `
+                    <div class="w-full flex flex-col items-center justify-center mt-20 text-gray-400">
+                        <svg class="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path></svg>
+                        <p class="italic">Folder ini kosong</p>
+                    </div>`;
+                return;
+            }
+
+            for (let name in currentNode.children) {
+                const item = currentNode.children[name];
+                const isSystem = item.protected;
+                const displayName = item.type === 'file' && !name.endsWith('.txt') ? name + '.txt' : name;
+                
+                let iconSvg = icons.folder;
+                if (item.type === 'disk') iconSvg = icons.disk;
+                if (item.type === 'file') iconSvg = icons.file;
+
+                const div = document.createElement('div');
+                div.className = "group relative flex flex-col items-center p-3 hover:bg-blue-50 border border-transparent hover:border-blue-200 rounded-lg cursor-pointer w-28 text-center transition-all";
+                
+                let actionButtons = '';
+                if (!isSystem) {
+                    actionButtons = `
+                        <div class="absolute -top-2 right-0 hidden group-hover:flex gap-1 bg-white border shadow-md rounded p-1 z-10 animate-fade-in">
+                            <button onclick="renameItem('${name}', event)" class="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-blue-600" title="Rename">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </button>
+                            <button onclick="deleteItem('${name}', event)" class="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-red-600" title="Delete">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    `;
+                }
+
+                div.innerHTML = `
+                    ${actionButtons}
+                    ${iconSvg}
+                    <span class="text-xs mt-2 truncate w-full px-1 text-gray-700 select-none ${isSystem ? 'font-medium' : ''}" title="${displayName}">${displayName}</span>
+                `;
+                
+                div.onclick = (e) => {
+                    if (item.type === 'folder' || item.type === 'disk') {
+                        currentPath.push(name);
+                        renderExplorer();
+                    } else {
+                        Swal.fire({
+                            title: displayName,
+                            text: "Ini adalah file teks kosong.",
+                            icon: 'info',
+                            confirmButtonColor: '#3B82F6'
+                        });
+                    }
+                };
+                grid.appendChild(div);
+            }
+        }
+
+        function navigateUp() {
+            if (currentPath.length > 0) {
+                currentPath.pop();
+                renderExplorer();
+            }
+        }
+
+        async function createItem(type) {
+            const { value: name } = await Swal.fire({
+                title: `Buat ${type === 'folder' ? 'Folder' : 'File Text'} Baru`,
+                input: 'text',
+                inputPlaceholder: `Masukkan nama ${type}...`,
+                showCancelButton: true,
+                confirmButtonText: 'Buat',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#3B82F6',
+                inputValidator: (value) => {
+                    if (!value) return 'Nama tidak boleh kosong!';
+                    if (value.includes('/') || value.includes('\\')) return 'Nama tidak boleh mengandung karakter / atau \\';
+                }
+            });
+
+            if (name) {
+                const currentNode = getCurrentNode();
+                const targetName = type === 'txt' ? (name.endsWith('.txt') ? name : name + '.txt') : name;
+
+                if (currentNode.children[targetName]) {
+                    Swal.fire('Gagal', 'Nama file/folder sudah ada di lokasi ini!', 'error');
+                    return;
+                }
+
+                if (type === 'folder') {
+                    currentNode.children[targetName] = { type: 'folder', children: {} };
+                } else {
+                    currentNode.children[targetName] = { type: 'file' };
+                }
+                renderExplorer();
+            }
+        }
+
+        async function renameItem(oldName, event) {
+            event.stopPropagation();
+            const currentNode = getCurrentNode();
+            const item = currentNode.children[oldName];
+            const isFile = item.type === 'file';
+            
+            let defaultVal = oldName;
+            if(isFile && oldName.endsWith('.txt')) {
+                defaultVal = oldName.replace('.txt', '');
+            }
+
+            const { value: newName } = await Swal.fire({
+                title: 'Ganti Nama',
+                input: 'text',
+                inputValue: defaultVal,
+                showCancelButton: true,
+                confirmButtonText: 'Simpan',
+                confirmButtonColor: '#3B82F6'
+            });
+
+            if (newName && newName !== defaultVal) {
+                const targetName = isFile ? (newName.endsWith('.txt') ? newName : newName + '.txt') : newName;
+                
+                if (currentNode.children[targetName]) {
+                    Swal.fire('Gagal', 'Nama tersebut sudah digunakan!', 'error');
+                    return;
+                }
+
+                currentNode.children[targetName] = item;
+                delete currentNode.children[oldName];
+                renderExplorer();
+            }
+        }
+
+        function deleteItem(name, event) {
+            event.stopPropagation();
+            const currentNode = getCurrentNode();
+            
+            Swal.fire({
+                title: 'Hapus Item?',
+                text: `Apakah Anda yakin ingin menghapus '${name}'?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#EF4444',
+                cancelButtonColor: '#6B7280',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    delete currentNode.children[name];
+                    renderExplorer();
+                }
+            });
+        }
+
+        function generateFlatPaths(node, pathStr, pathsArray) {
+            for (let name in node.children) {
+                let newPath = pathStr + "/" + name;
+                pathsArray.push(newPath);
+                if (node.children[name].children) {
+                    generateFlatPaths(node.children[name], newPath, pathsArray);
+                }
+            }
+        }
+
+        function submitTask() {
+            if(!taskId) {
+                Swal.fire('Error', 'Tidak ada tugas yang aktif.', 'error');
+                return;
+            }
+
+            let submittedPaths = [];
+            generateFlatPaths(fileSystem, "", submittedPaths);
+
+            fetch('/submit_task', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    task_id: taskId,
+                    paths: submittedPaths
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    Swal.fire({
+                        title: 'Tugas Dikirim!',
+                        html: `Skor Kamu: <strong class="text-2xl ${data.score === 100 ? 'text-green-500' : 'text-red-500'}">${data.score}/100</strong>`,
+                        icon: data.score === 100 ? 'success' : 'warning',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#3B82F6'
+                    });
+                } else {
+                    Swal.fire('Gagal', data.error || 'Terjadi kesalahan.', 'error');
+                }
+            });
+        }
+
+        // --- REQUEST TUGAS BARU (Fetch dari Pool) ---
+        async function fetchNewTask() {
+            try {
+                const res = await fetch('/api/get_task', { method: 'POST' });
+                const data = await res.json();
+                if(data.status === 'success') {
+                    window.location.reload(); 
+                } else {
+                    Swal.fire('Informasi', data.error, 'info');
+                }
+            } catch(e) {
+                Swal.fire('Error', 'Gagal menyambung ke server', 'error');
+            }
+        }
+
+        // --- LOGIKA GENERATOR DIAGRAM ASCII ---
+        function generateAsciiDiagram(paths) {
+            if (!paths || paths.length === 0) return "Tidak ada target spesifik.";
+            
+            const tree = { name: "Computer", children: {} };
+            
+            paths.forEach(path => {
+                const parts = path.split('/').filter(Boolean);
+                let current = tree;
+                
+                parts.forEach(part => {
+                    if (!current.children[part]) {
+                        current.children[part] = { name: part, children: {} };
+                    }
+                    current = current.children[part];
+                });
+            });
+
+            function drawTree(node, prefix = "", isLast = true, isRoot = true) {
+                let result = "";
+                if (!isRoot) {
+                    result += prefix + (isLast ? "└── " : "├── ") + node.name + "\n";
+                    prefix += isLast ? "    " : "│   ";
+                } else {
+                    result += node.name + "\n"; 
+                }
+                
+                const childrenKeys = Object.keys(node.children);
+                childrenKeys.forEach((key, index) => {
+                    const childIsLast = index === childrenKeys.length - 1;
+                    result += drawTree(node.children[key], prefix, childIsLast, false);
+                });
+                return result;
+            }
+            
+            return drawTree(tree);
+        }
+
+        // --- INISIALISASI SAAT HALAMAN DIMUAT ---
+        renderExplorer();
+
+        // Mengambil array langsung dari Backend Jinja (default array kosong jika null)
+        const expectedPaths = {{ task.expected_paths | default('[]', true) | safe }};
+        
+        const diagramEl = document.getElementById('ascii-diagram');
+        if (diagramEl) {
+            diagramEl.innerText = generateAsciiDiagram(expectedPaths);
+        }
+    </script>
+    
+    <style>
+        /* Animasi kecil untuk tombol aksi saat hover */
+        .animate-fade-in {
+            animation: fadeIn 0.2s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Admin - File Manager Edu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-gray-100 font-sans h-screen flex flex-col">
+    <!-- Navbar -->
+    <nav class="bg-blue-700 shadow-md p-4 text-white flex justify-between items-center shrink-0">
+        <h1 class="font-bold text-xl tracking-wide">👨‍🏫 Dashboard Guru</h1>
+        <div class="flex items-center gap-4">
+            <!-- Link Navigasi Baru -->
+            <a href="/admin" class="text-sm font-medium hover:text-blue-200 transition-colors">Dashboard</a>
+            <a href="/admin/members" class="text-sm font-medium bg-blue-600 border border-blue-500 px-3 py-1.5 rounded hover:bg-blue-500 transition-colors flex items-center gap-1">
+                👥 Anggota
+            </a>
+            
+            <span class="text-sm bg-blue-800 px-3 py-1 rounded-full border border-blue-600 ml-4">Admin: {{ username }}</span>
+            <a href="/logout" class="bg-red-500 hover:bg-red-600 transition-colors px-4 py-1.5 rounded text-sm font-semibold shadow">Logout</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6 flex gap-6 overflow-hidden">
+        
+        <!-- Kolom Kiri: Generator AI & Status Tugas -->
+        <div class="w-1/3 flex flex-col gap-6 overflow-y-auto">
+            <!-- Box AI Generator -->
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div class="flex items-center gap-2 mb-4 text-purple-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    <h2 class="text-xl font-bold text-gray-800">AI Task Generator</h2>
+                </div>
+                <p class="text-sm text-gray-500 mb-5">Generate skenario tugas praktik file management secara otomatis dengan Gemini AI.</p>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Kedalaman / Kompleksitas (Subfolder)</label>
+                        <select id="task-depth" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-gray-50">
+                            <option value="1">Mudah (1 Tingkat)</option>
+                            <option value="2" selected>Sedang (2 Tingkat)</option>
+                            <option value="4">Sulit (3-4 Tingkat)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Jumlah Tugas Dibuat</label>
+                        <input type="number" id="task-count" value="5" min="1" max="25" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-gray-50">
+                    </div>
+                    
+                    <button id="btn-generate" onclick="generateTasks()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded shadow transition-all flex justify-center items-center gap-2 mt-2">
+                        <span>Generate Tugas</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Box Info Sistem -->
+            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-lg shadow-sm border border-blue-100">
+                <h3 class="text-sm font-bold text-blue-800 mb-2 uppercase tracking-wider">Info Sistem Distribusi</h3>
+                <p class="text-sm text-gray-600 leading-relaxed">
+                    Setiap tugas yang digenerate akan masuk ke dalam <i>Pool Tugas</i> (Database). Saat siswa login, sistem akan secara acak menarik 1 tugas dari pool dan <b>menghapusnya</b> dari ketersediaan agar tidak ada siswa yang mendapat tugas ganda.
+                </p>
+            </div>
+
+            <!-- Box Sisa Tugas (Baru) -->
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mt-2">
+                <h3 class="text-sm font-bold text-gray-800 mb-3 border-b pb-2">Sisa Tugas di Pool: {{ tasks|length }}</h3>
+                <ul class="text-xs text-gray-600 max-h-40 overflow-y-auto space-y-2">
+                    {% for t in tasks %}
+                    <li class="flex justify-between items-center bg-gray-50 p-2 rounded border">
+                        <span class="truncate w-3/4">{{ t.title }}</span>
+                        <span class="text-gray-400">{{ t.created_at.strftime('%H:%M') }}</span>
+                    </li>
+                    {% endfor %}
+                    {% if not tasks %} <li class="italic text-gray-400">Pool tugas kosong.</li> {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Kolom Kanan: Live Score WebSocket -->
+        <div class="w-2/3 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+            <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <span class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                    Live Score Board
+                </h2>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-0">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead class="sticky top-0 bg-gray-100 shadow-sm z-10">
+                        <tr>
+                            <th class="p-4 font-semibold text-gray-700 border-b">Nama Siswa</th>
+                            <th class="p-4 font-semibold text-gray-700 border-b">Topik Tugas</th>
+                            <th class="p-4 font-semibold text-gray-700 border-b text-center">Nilai</th>
+                            <th class="p-4 font-semibold text-gray-700 border-b text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="score-table" class="divide-y divide-gray-100">
+                        {% for s in scores %}
+                        <tr class="hover:bg-gray-50 transition-colors bg-white">
+                            <td class="p-4 font-medium text-gray-800">{{ s.user.username }}</td>
+                            <td class="p-4 text-gray-600 truncate max-w-[200px]" title="{{ s.task_title }}">{{ s.task_title }}</td>
+                            <td class="p-4 text-center"><span class="text-lg font-bold text-gray-700">{{ s.score }}</span><span class="text-gray-400 text-xs">/100</span></td>
+                            <td class="p-4 text-center text-xs text-gray-500">{{ s.created_at.strftime('%d %b, %H:%M') }}</td>
+                        </tr>
+                        {% endfor %}
+                        <!-- Baris dummy kosong saat pertama dimuat -->
+                        <tr id="empty-state">
+                            <td colspan="4" class="p-8 text-center text-gray-400 italic">Belum ada pengumpulan tugas dari siswa...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spinner Loading Overlay (Hidden by default) -->
+    <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 hidden flex-col items-center justify-center backdrop-blur-sm">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mb-4"></div>
+        <h3 class="text-white text-xl font-bold tracking-wide">Gemini Sedang Meracik Tugas...</h3>
+        <p class="text-gray-200 text-sm mt-2">Membuat skenario struktur file yang unik.</p>
+    </div>
+
+    <script>
+        // --- WebSockets untuk Live Score ---
+        const socket = io();
+        socket.on('connect', () => {
+            socket.emit('join', {room: 'admin_room'});
+        });
+
+        socket.on('new_score', (data) => {
+            const table = document.getElementById('score-table');
+            const emptyState = document.getElementById('empty-state');
+            if (emptyState) emptyState.remove(); // Hapus pesan kosong
+
+            const row = document.createElement('tr');
+            row.className = "hover:bg-gray-50 transition-colors animate-fade-in";
+            
+            const isPerfect = data.score === 100;
+            const statusClass = isPerfect ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200';
+            
+            row.innerHTML = `
+                <td class="p-4 font-medium text-gray-800">${data.student}</td>
+                <td class="p-4 text-gray-600 truncate max-w-[200px]" title="${data.task}">${data.task}</td>
+                <td class="p-4 text-center">
+                    <span class="text-lg font-bold ${isPerfect ? 'text-green-600' : 'text-red-500'}">${data.score}</span>
+                    <span class="text-gray-400 text-xs">/100</span>
+                </td>
+                <td class="p-4 text-center">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold border ${statusClass}">
+                        ${isPerfect ? 'Sempurna' : 'Remedial'}
+                    </span>
+                </td>
+            `;
+            // Insert di urutan paling atas
+            table.insertBefore(row, table.firstChild);
+        });
+
+        // --- Logika Generate AI ---
+        async function generateTasks() {
+            const depth = document.getElementById('task-depth').value;
+            const count = document.getElementById('task-count').value;
+            const overlay = document.getElementById('loading-overlay');
+
+            if (count < 1 || count > 50) {
+                Swal.fire('Peringatan', 'Jumlah tugas harus di antara 1 - 50', 'warning');
+                return;
+            }
+
+            // Tampilkan Loading
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+
+            try {
+                const response = await fetch('/api/generate_tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ depth: parseInt(depth), count: parseInt(count) })
+                });
+
+                const result = await response.json();
+
+                // Sembunyikan Loading
+                overlay.classList.add('hidden');
+                overlay.classList.remove('flex');
+
+                if (response.ok) {
+                    Swal.fire('Berhasil!', result.message, 'success');
+                } else {
+                    Swal.fire('Gagal AI', result.error, 'error');
+                }
+            } catch (error) {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('flex');
+                Swal.fire('Kesalahan Jaringan', 'Gagal menghubungi server.', 'error');
+            }
+        }
+    </script>
+    <style>
+        .animate-fade-in { animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; background-color: #dbeafe; } to { opacity: 1; background-color: transparent; } }
+    </style>
+</body>
+</html>

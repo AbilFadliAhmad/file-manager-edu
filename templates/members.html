@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Manajemen Anggota - File Manager Edu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-gray-100 font-sans h-screen flex flex-col">
+    
+    <!-- Navbar -->
+    <nav class="bg-blue-700 shadow-md p-4 text-white flex justify-between items-center shrink-0">
+        <h1 class="font-bold text-xl tracking-wide">👨‍🏫 Dashboard Guru</h1>
+        <div class="flex items-center gap-4">
+            <a href="/admin" class="text-sm font-medium hover:text-blue-200 transition-colors">Dashboard</a>
+            <a href="/admin/members" class="text-sm font-medium bg-blue-800 border border-blue-600 px-3 py-1.5 rounded transition-colors flex items-center gap-1 shadow-inner">
+                👥 Anggota
+            </a>
+            <span class="text-sm bg-blue-600 px-3 py-1 rounded-full border border-blue-500 ml-4">Admin: {{ username }}</span>
+            <a href="/logout" class="bg-red-500 hover:bg-red-600 transition-colors px-4 py-1.5 rounded text-sm font-semibold shadow">Logout</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-8 max-w-6xl mx-auto w-full">
+        
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800">Manajemen Anggota (Siswa)</h2>
+                <p class="text-sm text-gray-500 mt-1">Kelola akun siswa dan pantau tugas aktif mereka.</p>
+            </div>
+            <button onclick="addMember()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow-sm flex items-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                Tambah Siswa
+            </button>
+        </div>
+
+        <!-- Tabel Anggota -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="p-4 font-semibold text-gray-700 w-16 text-center">No</th>
+                        <th class="p-4 font-semibold text-gray-700">Username</th>
+                        <th class="p-4 font-semibold text-gray-700">Status Tugas Aktif</th>
+                        <th class="p-4 font-semibold text-gray-700 text-center w-48">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for client in clients %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="p-4 text-center text-gray-500">{{ loop.index }}</td>
+                        <td class="p-4 font-medium text-gray-800 flex items-center gap-2">
+                            <span class="bg-blue-100 text-blue-700 p-1.5 rounded-full"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg></span>
+                            {{ client.username }}
+                        </td>
+                        <td class="p-4">
+                            {% if client.task_title %}
+                                <div class="text-indigo-700 font-semibold truncate max-w-xs" title="{{ client.task_title }}">{{ client.task_title }}</div>
+                                <div class="text-xs text-gray-400 mt-0.5">Sedang dikerjakan</div>
+                            {% else %}
+                                <span class="text-gray-400 italic">Belum mengambil tugas</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 flex justify-center gap-2">
+                            <button onclick="resetTask({{ client.id }}, '{{ client.username }}')" class="bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-3 py-1.5 rounded text-xs font-semibold transition-colors border border-yellow-200" title="Kosongkan tugas aktif siswa ini">
+                                Reset Tugas
+                            </button>
+                            <button onclick="deleteMember({{ client.id }}, '{{ client.username }}')" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded text-xs font-semibold transition-colors border border-red-200" title="Hapus Akun">
+                                Hapus
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    
+                    {% if not clients %}
+                    <tr>
+                        <td colspan="4" class="p-8 text-center text-gray-400 italic">Belum ada anggota yang terdaftar.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Logika Tambah Siswa
+        async function addMember() {
+            const { value: formValues } = await Swal.fire({
+                title: 'Tambah Siswa Baru',
+                html:
+                    '<input id="swal-input1" class="swal2-input" placeholder="Username">' +
+                    '<input id="swal-input2" class="swal2-input" type="password" placeholder="Password (default: 123)" value="123">',
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Simpan',
+                confirmButtonColor: '#16a34a',
+                preConfirm: () => {
+                    return {
+                        username: document.getElementById('swal-input1').value,
+                        password: document.getElementById('swal-input2').value
+                    }
+                }
+            });
+
+            if (formValues) {
+                if (!formValues.username || !formValues.password) {
+                    Swal.fire('Error', 'Username dan password tidak boleh kosong', 'error');
+                    return;
+                }
+
+                try {
+                    const res = await fetch('/api/members/add', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formValues)
+                    });
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        Swal.fire('Berhasil!', data.message, 'success').then(() => window.location.reload());
+                    } else {
+                        Swal.fire('Gagal', data.error, 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Error', 'Terjadi kesalahan jaringan', 'error');
+                }
+            }
+        }
+
+        // Logika Hapus Siswa
+        function deleteMember(id, name) {
+            Swal.fire({
+                title: 'Hapus Siswa?',
+                text: `Tindakan ini akan menghapus akun '${name}' beserta riwayat nilainya secara permanen!`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Ya, Hapus!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    try {
+                        const res = await fetch(`/api/members/delete/${id}`, { method: 'POST' });
+                        const data = await res.json();
+                        if (res.ok) {
+                            Swal.fire('Terhapus!', data.message, 'success').then(() => window.location.reload());
+                        } else {
+                            Swal.fire('Gagal', data.error, 'error');
+                        }
+                    } catch (e) {
+                        Swal.fire('Error', 'Terjadi kesalahan jaringan', 'error');
+                    }
+                }
+            });
+        }
+
+        // Logika Reset Tugas
+        function resetTask(id, name) {
+            Swal.fire({
+                title: 'Reset Tugas Aktif?',
+                text: `Tugas yang sedang dikerjakan oleh '${name}' akan dihapus dari statusnya.`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#eab308',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Ya, Reset!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    try {
+                        const res = await fetch(`/api/members/reset_task/${id}`, { method: 'POST' });
+                        const data = await res.json();
+                        if (res.ok) {
+                            Swal.fire('Direset!', data.message, 'success').then(() => window.location.reload());
+                        } else {
+                            Swal.fire('Gagal', data.error, 'error');
+                        }
+                    } catch (e) {
+                        Swal.fire('Error', 'Terjadi kesalahan jaringan', 'error');
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
