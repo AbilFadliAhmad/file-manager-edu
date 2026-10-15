@@ -40,7 +40,7 @@
             </div>
         </div>
         <div class="p-5 border-t bg-gray-50">
-            <button onclick="submitTask()" class="w-full bg-green-500 text-white font-bold py-3 rounded shadow hover:bg-green-600 hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+            <button id="submit-btn" onclick="submitTask()" class="w-full bg-green-500 text-white font-bold py-3 rounded shadow hover:bg-green-600 hover:shadow-lg transition-all transform hover:-translate-y-0.5">
                 Submit Tugas
             </button>
         </div>
@@ -67,9 +67,9 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
                     New Folder
                 </button>
-                <button onclick="createItem('txt')" class="flex items-center gap-1 bg-gray-50 border border-gray-300 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-100 transition-colors text-sm font-medium shadow-sm">
+                <button onclick="createItem('file')" class="flex items-center gap-1 bg-gray-50 border border-gray-300 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-100 transition-colors text-sm font-medium shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    New .txt
+                    New file
                 </button>
             </div>
         </div>
@@ -147,7 +147,7 @@
             for (let name in currentNode.children) {
                 const item = currentNode.children[name];
                 const isSystem = item.protected;
-                const displayName = item.type === 'file' && !name.endsWith('.txt') ? name + '.txt' : name;
+                const displayName = name;
                 
                 let iconSvg = icons.folder;
                 if (item.type === 'disk') iconSvg = icons.disk;
@@ -201,10 +201,12 @@
         }
 
         async function createItem(type) {
+            const isFolder = type === 'folder';
+
             const { value: name } = await Swal.fire({
-                title: `Buat ${type === 'folder' ? 'Folder' : 'File Text'} Baru`,
+                title: `Buat ${isFolder ? 'Folder' : 'File'} Baru`,
                 input: 'text',
-                inputPlaceholder: `Masukkan nama ${type}...`,
+                inputPlaceholder: isFolder ? 'Masukkan nama folder...' : 'Contoh: laporan.pdf, index.html, data.json...',
                 showCancelButton: true,
                 confirmButtonText: 'Buat',
                 cancelButtonText: 'Batal',
@@ -217,14 +219,19 @@
 
             if (name) {
                 const currentNode = getCurrentNode();
-                const targetName = type === 'txt' ? (name.endsWith('.txt') ? name : name + '.txt') : name;
+                let targetName = name.trim();
+
+                // Jika buat file dan siswa tidak mengetikkan ekstensi (tidak ada titik), beri default .txt
+                if (!isFolder && !targetName.includes('.')) {
+                    targetName += '.txt';
+                }
 
                 if (currentNode.children[targetName]) {
                     Swal.fire('Gagal', 'Nama file/folder sudah ada di lokasi ini!', 'error');
                     return;
                 }
 
-                if (type === 'folder') {
+                if (isFolder) {
                     currentNode.children[targetName] = { type: 'folder', children: {} };
                 } else {
                     currentNode.children[targetName] = { type: 'file' };
@@ -298,6 +305,22 @@
             }
         }
 
+        // Function untuk mengubah tampilan tombol submit menjadi indikator nilai
+        function updateSubmitButton(score) {
+            const btn = document.getElementById('submit-btn');
+            if (btn && score !== null && score !== undefined) {
+                btn.innerHTML = `Nilai Kamu: ${score} / 100`;
+                btn.className = "w-full bg-blue-600 text-white font-bold py-3 rounded shadow cursor-default";
+            }
+        }
+
+        // Cek saat pertama kali halaman dimuat
+        const existingScore = {{ user_score | default('null', true) }};
+        if (existingScore !== null) {
+            updateSubmitButton(existingScore);
+        }
+
+        // Update fungsi submitTask setelah respon fetch sukses
         function submitTask() {
             if(!taskId) {
                 Swal.fire('Error', 'Tidak ada tugas yang aktif.', 'error');
@@ -318,6 +341,9 @@
             .then(res => res.json())
             .then(data => {
                 if(data.status === 'success') {
+                    // Ubah tombol langsung menjadi nilai
+                    updateSubmitButton(data.score);
+
                     Swal.fire({
                         title: 'Tugas Dikirim!',
                         html: `Skor Kamu: <strong class="text-2xl ${data.score === 100 ? 'text-green-500' : 'text-red-500'}">${data.score}/100</strong>`,
@@ -329,21 +355,6 @@
                     Swal.fire('Gagal', data.error || 'Terjadi kesalahan.', 'error');
                 }
             });
-        }
-
-        // --- REQUEST TUGAS BARU (Fetch dari Pool) ---
-        async function fetchNewTask() {
-            try {
-                const res = await fetch('/api/get_task', { method: 'POST' });
-                const data = await res.json();
-                if(data.status === 'success') {
-                    window.location.reload(); 
-                } else {
-                    Swal.fire('Informasi', data.error, 'info');
-                }
-            } catch(e) {
-                Swal.fire('Error', 'Gagal menyambung ke server', 'error');
-            }
         }
 
         // --- LOGIKA GENERATOR DIAGRAM ASCII ---

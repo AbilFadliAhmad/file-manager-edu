@@ -1,21 +1,29 @@
 import json
+import os
 import random
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO, emit, join_room
 import google.generativeai as genai
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'rahasia_negara'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_secret_key')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URI', 'sqlite:///fallback.db')
+
+# Khusus untuk tipe data Boolean, konversi string dari .env menjadi True/False asli
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = os.environ.get('TRACK_MODIFICATIONS', 'False').lower() in ('true', '1', 't')
 
 db = SQLAlchemy(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Konfigurasi Gemini API (GANTI DENGAN API KEY ANDA)
-genai.configure(api_key="AIzaSyBWc4Vw-awaeMO6SWb5VfYmidr1Qu8Vdlo")
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
 generation_config = {
     "temperature": 0.7,
     "response_mime_type": "application/json", # Memaksa output berupa JSON murni
@@ -34,13 +42,14 @@ class User(db.Model):
     task_description = db.Column(db.Text, nullable=True)
     task_paths = db.Column(db.Text, nullable=True)
 
+# --- 1. Model Score (Tambahkan unique=True pada user_id) ---
 class Score(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True, nullable=False) # unique=True
     task_title = db.Column(db.String(100), nullable=False)
     score = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow) # <--- TAMBAHKAN INI
-    user = db.relationship('User', backref='scores')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User', backref=db.backref('score_rel', uselist=False))
 
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -51,46 +60,51 @@ class Task(db.Model):
 
 # --- INISIALISASI DATABASE & DATA DUMMY ---
 with app.app_context():
-    db.drop_all() # HATI-HATI: Ini akan mereset database untuk mengaplikasikan skema baru
+    # db.create_all() hanya membuat tabel baru jika belum ada (tidak merusak data lama)
     db.create_all()
+
+    # Hanya isi data dummy jika tabel User masih kosong
     if not User.query.first():
         # Buat user dummy
         db.session.add(User(username='admin', password='123', role='admin'))
         db.session.add(User(username='siswa', password='123', role='client'))
         db.session.add(User(username='siswa2', password='123', role='client'))
-        
+
         # Buat beberapa tugas dummy di pool tugas
         tugas1 = Task(
-            title='Tugas 1: Pengenalan Folder', 
-            description="Buatlah folder 'Latihan1' di Disk D, lalu buat file 'imam.txt'.", 
+            title='Tugas 1: Pengenalan Folder',
+            description="Buatlah folder 'Latihan1' di Disk D, lalu buat file 'imam.txt'.",
             expected_paths=json.dumps(["/Data (D:)/Latihan1", "/Data (D:)/Latihan1/imam.txt"])
         )
         tugas2 = Task(
-            title='Tugas 2: Struktur C', 
-            description="Buatlah folder 'Tugas_C' di Disk C, lalu buat file 'data.txt'.", 
+            title='Tugas 2: Struktur C',
+            description="Buatlah folder 'Tugas_C' di Disk C, lalu buat file 'data.txt'.",
             expected_paths=json.dumps(["/Local Disk (C:)/Tugas_C", "/Local Disk (C:)/Tugas_C/data.txt"])
         )
         db.session.add_all([tugas1, tugas2])
         db.session.commit()
 
-# --- ROUTES ---
+
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
         user = User.query.filter_by(username=username, password=password).first()
-        
+
         if user:
             session['user_id'] = user.id
             session['username'] = user.username
             session['role'] = user.role
-            
+
             if user.role == 'admin':
                 return redirect(url_for('admin_dashboard'))
             else:
                 return redirect(url_for('client_dashboard'))
-        return "Username atau Password Salah!"
+
+        # Mengirim variabel error ke template saat login gagal
+        return render_template('login.html', error="Username atau Password Salah!")
+
     return render_template('login.html')
 
 @app.route('/logout')
@@ -134,6 +148,10 @@ def client_dashboard():
         else:
             return "Belum ada tugas yang tersedia di sistem. Tunggu Admin membuat tugas baru."
 
+    # Ambil 1 data nilai dari table Score untuk user ini
+    user_score = Score.query.filter_by(user_id=user.id).first()
+    score_value = user_score.score if user_score else None
+
     # Kirim data tugas ke template
     task_data = {
         'id': user.id, # ID user sebagai dummy ID tugas untuk JS
@@ -141,13 +159,17 @@ def client_dashboard():
         'description': user.task_description,
         'expected_paths': user.task_paths
     }
-    return render_template('student.html', username=session['username'], task=task_data)
+    return render_template(
+        'student.html',
+        username=session['username'],
+        task=task_data,
+        user_score=score_value  # Kirim variabel nilai ke template
+    )
 
+# --- 3. Route /submit_task (Upsert / Update nilai jika sudah ada) ---
 @app.route('/submit_task', methods=['POST'])
 def submit_task():
-    print("Menerima data submission dari client:", request.json)
     data = request.json
-    
     user = User.query.get(session['user_id'])
     if not user or not user.task_paths:
         return jsonify({'error': 'Tugas tidak ditemukan'}), 404
@@ -155,17 +177,21 @@ def submit_task():
     expected = set(json.loads(user.task_paths))
     submitted = set(data.get('paths', []))
 
-    # Cari path yang cocok
     correct_matches = expected.intersection(submitted)
-    
-    # Hitung nilai
     score_value = 0
     if len(expected) > 0:
         score_value = int((len(correct_matches) / len(expected)) * 100)
 
-    # Simpan ke tabel Score
-    new_score = Score(user_id=user.id, task_title=user.task_title, score=score_value)
-    db.session.add(new_score)
+    # Cek apakah nilai siswa sudah ada (Upsert)
+    existing_score = Score.query.filter_by(user_id=user.id).first()
+    if existing_score:
+        existing_score.score = score_value
+        existing_score.task_title = user.task_title
+        existing_score.created_at = datetime.utcnow()
+    else:
+        new_score = Score(user_id=user.id, task_title=user.task_title, score=score_value)
+        db.session.add(new_score)
+
     db.session.commit()
 
     # Kirim via WebSocket ke Guru
@@ -292,6 +318,22 @@ def reset_member_task(user_id):
         
     return jsonify({'error': 'User tidak ditemukan'}), 404
 
+
+@app.route('/api/members/reset_all_tasks', methods=['POST'])
+def reset_all_members_tasks():
+    if session.get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    # Reset task_title, task_description, dan task_paths untuk semua user dengan role 'client'
+    User.query.filter_by(role='client').update({
+        'task_title': None,
+        'task_description': None,
+        'task_paths': None
+    })
+    db.session.commit()
+
+    return jsonify({'status': 'success', 'message': 'Semua tugas siswa berhasil direset!'})
+
 # --- WEBSOCKETS ---
 @socketio.on('join')
 def on_join(data):
@@ -300,4 +342,4 @@ def on_join(data):
         print(f"Admin {session['username']} joined admin_room")
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, port=8003)
+    socketio.run(app, debug=True, port=8004)
