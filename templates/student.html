@@ -17,13 +17,39 @@
 
     <!-- Sidebar Tugas -->
     <div class="w-1/4 min-w-[300px] bg-white border-r shadow-sm flex flex-col z-10">
-        <div class="p-5 bg-gradient-to-r from-blue-700 to-blue-600 text-white flex justify-between items-center shadow-md">
-            <div>
-                <h2 class="font-bold text-lg leading-tight">File Manager</h2>
-                <p class="text-xs text-blue-200">User: {{ username }}</p>
+        <div class="p-4 bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border-b border-slate-800/80 text-white flex justify-between items-center shadow-lg">
+        <!-- Brand & Info User -->
+        <div class="flex items-center gap-3">
+            <!-- Logo Icon dengan Glassmorphism -->
+            <div class="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-inner">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 01-2-2z"/>
+                </svg>
             </div>
-            <a href="/logout" class="text-xs font-semibold bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded transition-colors">Logout</a>
+            <div>
+                <h2 class="font-bold text-sm tracking-wide text-slate-100 flex items-center gap-2 leading-snug">
+                    File Manager
+                    <span class="flex h-2 w-2 relative" title="Status Online">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                </h2>
+                <p class="text-[11px] text-slate-400 font-medium tracking-tight">
+                    User: <span class="text-blue-300 font-semibold">@{{ username }}</span>
+                </p>
+            </div>
         </div>
+
+        <!-- Tombol Logout Modern -->
+        <a href="/logout" 
+        class="flex items-center gap-1.5 text-xs font-semibold text-rose-400 bg-rose-500/10 hover:bg-rose-600 hover:text-white border border-rose-500/20 px-3.5 py-1.5 rounded-xl transition-all duration-200 active:scale-95 shadow-sm" 
+        title="Keluar dari akun">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            <span>Logout</span>
+        </a>
+    </div>
         <div class="p-6 flex-1 overflow-y-auto">
             <div class="inline-block bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded mb-3">TUGAS AKTIF</div>
             <h3 class="text-xl font-bold mb-3 text-gray-800">{{ task.title }}</h3>
@@ -56,9 +82,12 @@
             </button>
             
             <!-- Address Bar -->
-            <div class="flex-1 bg-white border border-gray-300 rounded flex items-center px-3 py-1.5 shadow-inner">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-                <span class="font-mono text-sm text-gray-600 select-none" id="current-path-display">Computer > </span>
+            <div class="flex-1 bg-white border border-gray-300 rounded flex items-center px-3 py-1.5 shadow-inner overflow-x-auto">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 mr-2 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <!-- Container breadcrumb dinamis -->
+                <div class="font-mono text-sm text-gray-600 flex items-center gap-1 select-none whitespace-nowrap" id="current-path-display"></div>
             </div>
 
             <!-- Action Buttons -->
@@ -129,10 +158,8 @@
         function renderExplorer() {
             const grid = document.getElementById('explorer-grid');
             grid.innerHTML = '';
-            
-            let displayPath = currentPath.length === 0 ? "Computer" : "Computer > " + currentPath.join(" > ");
-            document.getElementById('current-path-display').innerText = displayPath;
 
+            renderBreadcrumbs();
             const currentNode = getCurrentNode();
             
             if (Object.keys(currentNode.children).length === 0) {
@@ -193,6 +220,50 @@
             }
         }
 
+        function renderBreadcrumbs() {
+            console.log("Rendering breadcrumbs for path:", currentPath);
+            const container = document.getElementById('current-path-display');
+            container.innerHTML = '';
+
+            // 1. Item Utama / Root (Computer)
+            const rootItem = document.createElement('span');
+            rootItem.className = 'hover:bg-blue-100 hover:text-blue-700 px-1.5 py-0.5 rounded cursor-pointer transition-colors font-semibold';
+            rootItem.innerText = 'Computer';
+            rootItem.onclick = () => {
+                currentPath = [];
+                renderExplorer();
+            };
+            container.appendChild(rootItem);
+
+            // 2. Iterasi Jalur Folder Saat Ini
+            currentPath.forEach((folderName, index) => {
+                // Karakter pemisah '>'
+                const separator = document.createElement('span');
+                separator.className = 'text-gray-400 text-xs mx-0.5';
+                separator.innerText = '>';
+                container.appendChild(separator);
+
+                // Segmen Folder
+                const folderItem = document.createElement('span');
+                const isLast = index === currentPath.length - 1;
+
+                if (isLast) {
+                    // Folder aktif saat ini (tidak perlu efek hover berlebih)
+                    folderItem.className = 'bg-gray-100 font-bold px-1.5 py-0.5 rounded text-gray-800';
+                } else {
+                    // Folder induk (bisa diklik untuk navigasi mundur beberapa tingkat)
+                    folderItem.className = 'hover:bg-blue-100 hover:text-blue-700 px-1.5 py-0.5 rounded cursor-pointer transition-colors font-medium';
+                    folderItem.onclick = () => {
+                        // Potong array path sampai tingkat folder ini
+                        currentPath = currentPath.slice(0, index + 1);
+                        renderExplorer();
+                    };
+                }
+
+                folderItem.innerText = folderName;
+                container.appendChild(folderItem);
+            });
+        }
         function navigateUp() {
             if (currentPath.length > 0) {
                 currentPath.pop();

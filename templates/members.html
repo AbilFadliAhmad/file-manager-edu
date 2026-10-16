@@ -50,7 +50,7 @@
 
                     <!-- Dropdown Menu Card -->
                     <div id="profileDropdownMenu" class="hidden absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 text-gray-700 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                        <!-- Header Info User dalam Dropdown -->
+                        <!-- Header Info User -->
                         <div class="px-4 py-3 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl">
                             <p class="text-xs text-gray-500 font-medium">Login sebagai</p>
                             <p class="text-sm font-bold text-gray-800 truncate capitalize">{{ username }}</p>
@@ -69,6 +69,11 @@
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                                 Manajemen Anggota
                             </a>
+                            <!-- OPSI EDIT PROFIL BARU -->
+                            <button onclick="editProfile()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-gray-700 rounded-xl hover:bg-gray-100 transition-colors text-left">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                Edit Profil Saya
+                            </button>
                         </div>
 
                         <!-- Divider -->
@@ -112,47 +117,94 @@
             </div>
         </div>
 
-        <!-- Tabel Anggota -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <!-- Tabel Anggota Modern -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-700 overflow-hidden">
             <table class="w-full text-left border-collapse text-sm">
-                <thead class="bg-gray-50 border-b border-gray-200">
+                <thead class="bg-gray-50/80 border-b border-gray-100 divide-y divide-gray-700">
                     <tr>
-                        <th class="p-4 font-semibold text-gray-700 w-16 text-center">No</th>
-                        <th class="p-4 font-semibold text-gray-700">Username</th>
-                        <th class="p-4 font-semibold text-gray-700">Status Tugas Aktif</th>
-                        <th class="p-4 font-semibold text-gray-700 text-center w-48">Aksi</th>
+                        <th class="p-4 font-semibold text-gray-600 w-16 text-center">No</th>
+                        <th class="p-4 font-semibold text-gray-600">Pengguna & Role</th>
+                        <th class="p-4 font-semibold text-gray-600">Status Tugas Aktif</th>
+                        <th class="p-4 font-semibold text-gray-600 text-center w-36">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
-                    {% for client in clients %}
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="p-4 text-center text-gray-500">{{ loop.index }}</td>
-                        <td class="p-4 font-medium text-gray-800 flex items-center gap-2">
-                            <span class="bg-blue-100 text-blue-700 p-1.5 rounded-full"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg></span>
-                            {{ client.username }}
-                        </td>
+                <tbody class="divide-y divide-gray-700">
+                    {% for user_item in users %}
+                    <tr class="hover:bg-gray-50/60 transition-colors group border-y border-gray-600">
+                        <td class="p-4 text-center text-gray-400 font-medium">{{ loop.index }}</td>
+                        
+                        <!-- Column Username & Role Badge -->
                         <td class="p-4">
-                            {% if client.task_title %}
-                                <div class="text-indigo-700 font-semibold truncate max-w-xs" title="{{ client.task_title }}">{{ client.task_title }}</div>
-                                <div class="text-xs text-gray-400 mt-0.5">Sedang dikerjakan</div>
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shadow-inner {{ 'bg-purple-100 text-purple-700' if user_item.role == 'admin' else 'bg-blue-100 text-blue-700' }}">
+                                    {{ user_item.username[0]|upper }}
+                                </div>
+                                <div>
+                                    <div class="font-semibold text-gray-800">{{ user_item.username }}</div>
+                                    {% if user_item.role == 'admin' %}
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                                            👑 Admin
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                                            🎓 Siswa
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Column Status Tugas -->
+                        <td class="p-4">
+                            {% if user_item.role == 'client' %}
+                                {% if user_item.task_title %}
+                                    <div class="inline-flex flex-col bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl max-w-xs">
+                                        <span class="text-xs font-bold text-emerald-800 truncate" title="{{ user_item.task_title }}">{{ user_item.task_title }}</span>
+                                        <span class="text-[10px] text-emerald-600 font-medium">Sedang Dikembangkan</span>
+                                    </div>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs text-gray-700 bg-gray-100 italic">
+                                        Belum mengambil tugas
+                                    </span>
+                                {% endif %}
                             {% else %}
-                                <span class="text-gray-400 italic">Belum mengambil tugas</span>
+                                <span class="text-xs text-gray-700 italic">- (Akses Administrator)</span>
                             {% endif %}
                         </td>
-                        <td class="p-4 flex justify-center gap-2">
-                            <button onclick="resetTask({{ client.id }}, '{{ client.username }}')" class="bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-3 py-1.5 rounded text-xs font-semibold transition-colors border border-yellow-200" title="Kosongkan tugas aktif siswa ini">
-                                Reset Tugas
-                            </button>
-                            <button onclick="deleteMember({{ client.id }}, '{{ client.username }}')" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded text-xs font-semibold transition-colors border border-red-200" title="Hapus Akun">
-                                Hapus
-                            </button>
+
+                        <!-- Column Action Icons -->
+                        <td class="p-4">
+                            <div class="flex items-center justify-end gap-1">
+                                <!-- Reset Task Icon (Hanya untuk Siswa) -->
+                                {% if user_item.role == 'client' %}
+                                <button onclick="resetTask({{ user_item.id }}, '{{ user_item.username }}')" 
+                                        class="p-2 rounded-xl text-amber-600 hover:bg-amber-50 hover:scale-105 active:scale-95 transition-all" 
+                                        title="Reset Tugas Siswa">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                </button>
+                                {% endif %}
+
+                                <!-- Edit Icon -->
+                                <button onclick="editMember({{ user_item.id }}, '{{ user_item.username }}', '{{ user_item.role }}')" 
+                                        class="p-2 rounded-xl text-blue-600 hover:bg-blue-50 hover:scale-105 active:scale-95 transition-all" 
+                                        title="Edit Anggota">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
+
+                                <!-- Delete Icon -->
+                                <button onclick="deleteMember({{ user_item.id }}, '{{ user_item.username }}')" 
+                                        class="p-2 rounded-xl text-rose-600 hover:bg-rose-50 hover:scale-105 active:scale-95 transition-all" 
+                                        title="Hapus Anggota">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
-                    
-                    {% if not clients %}
+
+                    {% if not users %}
                     <tr>
-                        <td colspan="4" class="p-8 text-center text-gray-400 italic">Belum ada anggota yang terdaftar.</td>
+                        <td colspan="4" class="p-8 text-center text-gray-400 italic">Belum ada pengguna terdaftar.</td>
                     </tr>
                     {% endif %}
                 </tbody>
@@ -161,28 +213,46 @@
     </div>
 
     <script>
-        // Logika Tambah Siswa
+        // --- LOGIKA TAMBAH ANGGOTA ---
         async function addMember() {
             const { value: formValues } = await Swal.fire({
-                title: 'Tambah Siswa Baru',
-                html:
-                    '<input id="swal-input1" class="swal2-input" placeholder="Username">' +
-                    '<input id="swal-input2" class="swal2-input" type="password" placeholder="Password (default: 123)" value="123">',
+                title: 'Tambah Anggota Baru',
+                html: `
+                    <div class="space-y-3 text-left mt-2">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Username</label>
+                            <input id="swal-input-user" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none mt-1" placeholder="Masukkan username">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Password</label>
+                            <input id="swal-input-pass" type="password" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none mt-1" placeholder="Buat Sandi yang kuat">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Role Hak Akses</label>
+                            <select id="swal-input-role" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none mt-1 bg-white">
+                                <option value="client" selected>Siswa (Client)</option>
+                                <option value="admin">Administrator (Admin)</option>
+                            </select>
+                        </div>
+                    </div>
+                `,
                 focusConfirm: false,
                 showCancelButton: true,
                 confirmButtonText: 'Simpan',
-                confirmButtonColor: '#16a34a',
+                confirmButtonColor: '#2563eb',
+                cancelButtonText: 'Batal',
                 preConfirm: () => {
                     return {
-                        username: document.getElementById('swal-input1').value,
-                        password: document.getElementById('swal-input2').value
+                        username: document.getElementById('swal-input-user').value.trim(),
+                        password: document.getElementById('swal-input-pass').value.trim(),
+                        role: document.getElementById('swal-input-role').value
                     }
                 }
             });
 
             if (formValues) {
                 if (!formValues.username || !formValues.password) {
-                    Swal.fire('Error', 'Username dan password tidak boleh kosong', 'error');
+                    Swal.fire('Error', 'Username dan password wajib diisi', 'error');
                     return;
                 }
 
@@ -193,7 +263,6 @@
                         body: JSON.stringify(formValues)
                     });
                     const data = await res.json();
-                    
                     if (res.ok) {
                         Swal.fire('Berhasil!', data.message, 'success').then(() => window.location.reload());
                     } else {
@@ -205,14 +274,77 @@
             }
         }
 
-        // Logika Hapus Siswa
+
+        // --- LOGIKA EDIT ANGGOTA ---
+        async function editMember(id, currentUsername, currentRole) {
+            const { value: formValues } = await Swal.fire({
+                title: 'Edit Data Anggota',
+                html: `
+                    <div class="space-y-3 text-left mt-2">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Username</label>
+                            <input id="swal-edit-user" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none mt-1" value="${currentUsername}">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Password Baru (Biarkan kosong jika tidak diubah)</label>
+                            <input id="swal-edit-pass" type="password" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none mt-1" placeholder="Kosongkan jika tidak ganti">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Role Hak Akses</label>
+                            <select id="swal-edit-role" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none mt-1 bg-white">
+                                <option value="client" ${currentRole === 'client' ? 'selected' : ''}>Siswa (Client)</option>
+                                <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>Administrator (Admin)</option>
+                            </select>
+                        </div>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Perbarui',
+                confirmButtonColor: '#2563eb',
+                cancelButtonText: 'Batal',
+                preConfirm: () => {
+                    return {
+                        username: document.getElementById('swal-edit-user').value.trim(),
+                        password: document.getElementById('swal-edit-pass').value.trim(),
+                        role: document.getElementById('swal-edit-role').value
+                    }
+                }
+            });
+
+            if (formValues) {
+                if (!formValues.username) {
+                    Swal.fire('Error', 'Username tidak boleh kosong', 'error');
+                    return;
+                }
+
+                try {
+                    const res = await fetch(`/api/members/edit/${id}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formValues)
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        Swal.fire('Berhasil!', data.message, 'success').then(() => window.location.reload());
+                    } else {
+                        Swal.fire('Gagal', data.error, 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Error', 'Terjadi kesalahan jaringan', 'error');
+                }
+            }
+        }
+
+
+        // --- LOGIKA HAPUS ANGGOTA ---
         function deleteMember(id, name) {
             Swal.fire({
-                title: 'Hapus Siswa?',
-                text: `Tindakan ini akan menghapus akun '${name}' beserta riwayat nilainya secara permanen!`,
+                title: 'Hapus Anggota?',
+                text: `Akun '${name}' beserta riwayat nilainya akan dihapus permanen.`,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#d33',
+                confirmButtonColor: '#e11d48',
                 cancelButtonColor: '#6b7280',
                 confirmButtonText: 'Ya, Hapus!'
             }).then(async (result) => {
@@ -231,7 +363,6 @@
                 }
             });
         }
-
         // Logika Reset Tugas
         function resetTask(id, name) {
             Swal.fire({
@@ -287,7 +418,7 @@
             });
         }
 
-         function toggleProfileDropdown(event) {
+        function toggleProfileDropdown(event) {
             event.stopPropagation();
             const menu = document.getElementById('profileDropdownMenu');
             const arrow = document.getElementById('dropdownArrow');
@@ -302,6 +433,64 @@
             }
         }
 
+        async function editProfile() {
+            // Sembunyikan dropdown menu saat modal terbuka
+            document.getElementById('profileDropdownMenu').classList.add('hidden');
+            document.getElementById('dropdownArrow').classList.remove('rotate-180');
+
+            const currentUsername = "{{ username }}";
+
+            const { value: formValues } = await Swal.fire({
+                title: 'Edit Profil Saya',
+                html: `
+                    <div class="space-y-3 text-left mt-2">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Username Baru</label>
+                            <input id="swal-profile-user" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none mt-1" value="${currentUsername}">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Password Baru</label>
+                            <input id="swal-profile-pass" type="password" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none mt-1" placeholder="Biarkan kosong jika tidak diubah">
+                        </div>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Simpan',
+                confirmButtonColor: '#2563eb',
+                cancelButtonText: 'Batal',
+                preConfirm: () => {
+                    return {
+                        username: document.getElementById('swal-profile-user').value.trim(),
+                        password: document.getElementById('swal-profile-pass').value.trim()
+                    }
+                }
+            });
+
+            if (formValues) {
+                if (!formValues.username) {
+                    Swal.fire('Error', 'Username tidak boleh kosong!', 'error');
+                    return;
+                }
+
+                try {
+                    const res = await fetch('/api/profile/edit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formValues)
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        Swal.fire('Berhasil!', data.message, 'success').then(() => window.location.reload());
+                    } else {
+                        Swal.fire('Gagal', data.error, 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Error', 'Terjadi kesalahan jaringan', 'error');
+                }
+            }
+        }
+        
         // Menutup dropdown otomatis jika mengklik di luar area menu
         document.addEventListener('click', function(event) {
             const btn = document.getElementById('profileDropdownBtn');

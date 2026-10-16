@@ -50,7 +50,7 @@
 
                     <!-- Dropdown Menu Card -->
                     <div id="profileDropdownMenu" class="hidden absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 text-gray-700 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                        <!-- Header Info User dalam Dropdown -->
+                        <!-- Header Info User -->
                         <div class="px-4 py-3 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl">
                             <p class="text-xs text-gray-500 font-medium">Login sebagai</p>
                             <p class="text-sm font-bold text-gray-800 truncate capitalize">{{ username }}</p>
@@ -69,6 +69,11 @@
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                                 Manajemen Anggota
                             </a>
+                            <!-- OPSI EDIT PROFIL BARU -->
+                            <button onclick="editProfile()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-gray-700 rounded-xl hover:bg-gray-100 transition-colors text-left">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                Edit Profil Saya
+                            </button>
                         </div>
 
                         <!-- Divider -->
@@ -87,6 +92,7 @@
             </div>
         </div>
     </nav>
+
 
     <!-- Main Content -->
     <div class="flex-1 p-6 flex gap-6 overflow-hidden">
@@ -282,6 +288,64 @@
             }
         }
 
+        async function editProfile() {
+            // Sembunyikan dropdown menu saat modal terbuka
+            document.getElementById('profileDropdownMenu').classList.add('hidden');
+            document.getElementById('dropdownArrow').classList.remove('rotate-180');
+
+            const currentUsername = "{{ username }}";
+
+            const { value: formValues } = await Swal.fire({
+                title: 'Edit Profil Saya',
+                html: `
+                    <div class="space-y-3 text-left mt-2">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Username Baru</label>
+                            <input id="swal-profile-user" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none mt-1" value="${currentUsername}">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Password Baru</label>
+                            <input id="swal-profile-pass" type="password" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none mt-1" placeholder="Biarkan kosong jika tidak diubah">
+                        </div>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Simpan',
+                confirmButtonColor: '#2563eb',
+                cancelButtonText: 'Batal',
+                preConfirm: () => {
+                    return {
+                        username: document.getElementById('swal-profile-user').value.trim(),
+                        password: document.getElementById('swal-profile-pass').value.trim()
+                    }
+                }
+            });
+
+            if (formValues) {
+                if (!formValues.username) {
+                    Swal.fire('Error', 'Username tidak boleh kosong!', 'error');
+                    return;
+                }
+
+                try {
+                    const res = await fetch('/api/profile/edit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formValues)
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        Swal.fire('Berhasil!', data.message, 'success').then(() => window.location.reload());
+                    } else {
+                        Swal.fire('Gagal', data.error, 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Error', 'Terjadi kesalahan jaringan', 'error');
+                }
+            }
+        }
+        
         // Menutup dropdown otomatis jika mengklik di luar area menu
         document.addEventListener('click', function(event) {
             const btn = document.getElementById('profileDropdownBtn');

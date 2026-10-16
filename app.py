@@ -22,8 +22,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Konfigurasi Gemini API (GANTI DENGAN API KEY ANDA)
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+
 generation_config = {
     "temperature": 0.7,
     "response_mime_type": "application/json", # Memaksa output berupa JSON murni
@@ -146,7 +145,8 @@ def client_dashboard():
             db.session.delete(selected_task)
             db.session.commit()
         else:
-            return "Belum ada tugas yang tersedia di sistem. Tunggu Admin membuat tugas baru."
+            # RENDER TEMPLATE ERROR / EMPTY STATE PROFESSIONAL
+            return render_template('no_task.html', username=session.get('username'))
 
     # Ambil 1 data nilai dari table Score untuk user ini
     user_score = Score.query.filter_by(user_id=user.id).first()
@@ -154,7 +154,7 @@ def client_dashboard():
 
     # Kirim data tugas ke template
     task_data = {
-        'id': user.id, # ID user sebagai dummy ID tugas untuk JS
+        'id': user.id,
         'title': user.task_title,
         'description': user.task_description,
         'expected_paths': user.task_paths
@@ -163,9 +163,8 @@ def client_dashboard():
         'student.html',
         username=session['username'],
         task=task_data,
-        user_score=score_value  # Kirim variabel nilai ke template
+        user_score=score_value
     )
-
 # --- 3. Route /submit_task (Upsert / Update nilai jika sudah ada) ---
 @app.route('/submit_task', methods=['POST'])
 def submit_task():
@@ -260,10 +259,9 @@ def admin_members():
     if session.get('role') != 'admin':
         return redirect(url_for('login'))
     
-    # Ambil semua user dengan role 'client'
-    clients = User.query.filter_by(role='client').all()
-    print("Daftar anggota (clients):", [client.task_title for client in clients])
-    return render_template('members.html', username=session['username'], clients=clients)
+    # Ambil seluruh user (Admin dan Client)
+    users = User.query.order_by(User.role.asc(), User.username.asc()).all()
+    return render_template('members.html', username=session['username'], users=users)
 
 @app.route('/api/members/add', methods=['POST'])
 def add_member():
@@ -285,6 +283,35 @@ def add_member():
     db.session.commit()
     
     return jsonify({'status': 'success', 'message': 'Anggota berhasil ditambahkan!'})
+
+@app.route('/api/members/edit/<int:user_id>', methods=['POST'])
+def edit_member(user_id):
+    if session.get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 401
+        
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User tidak ditemukan'}), 404
+        
+    data = request.json
+    new_username = data.get('username')
+    new_password = data.get('password')
+    new_role = data.get('role')
+    
+    # Validasi username ganti ke milik orang lain
+    existing = User.query.filter_by(username=new_username).first()
+    if existing and existing.id != user.id:
+        return jsonify({'error': 'Username sudah digunakan oleh akun lain!'}), 400
+        
+    user.username = new_username
+    user.role = new_role
+    
+    # Jika password diisi, ubah password
+    if new_password and new_password.strip():
+        user.password = new_password
+        
+    db.session.commit()
+    return jsonify({'status': 'success', 'message': 'Data anggota berhasil diperbarui!'})
 
 @app.route('/api/members/delete/<int:user_id>', methods=['POST'])
 def delete_member(user_id):
@@ -333,6 +360,36 @@ def reset_all_members_tasks():
     db.session.commit()
 
     return jsonify({'status': 'success', 'message': 'Semua tugas siswa berhasil direset!'})
+
+@app.route('/api/profile/edit', methods=['POST'])
+def edit_my_profile():
+    if not session.get('user_id'):
+        return jsonify({'error': 'Unauthorized'}), 401
+        
+    user = User.query.get(session['user_id'])
+    if not user:
+        return jsonify({'error': 'User tidak ditemukan'}), 404
+        
+    data = request.json
+    new_username = data.get('username')
+    new_password = data.get('password')
+    
+    if not new_username:
+        return jsonify({'error': 'Username tidak boleh kosong!'}), 400
+        
+    # Cek jika username diganti dan sudah dipakai orang lain
+    existing = User.query.filter_by(username=new_username).first()
+    if existing and existing.id != user.id:
+        return jsonify({'error': 'Username sudah digunakan oleh akun lain!'}), 400
+        
+    user.username = new_username
+    session['username'] = new_username  # Perbarui session username
+    
+    if new_password and new_password.strip():
+        user.password = new_password
+        
+    db.session.commit()
+    return jsonify({'status': 'success', 'message': 'Profil berhasil diperbarui!'})
 
 # --- WEBSOCKETS ---
 @socketio.on('join')
